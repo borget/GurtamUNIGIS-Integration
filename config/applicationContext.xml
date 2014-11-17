@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+	<!-- creates a java.util.Properties instance with values loaded from the 
+		supplied location -->
+	<util:properties id="appProperties" location="file:///home/alberto/skyguardian/unigis/GurtamUNIGIS-Integration/config/application.properties" />
+		
+	<!-- util:properties id="appProperties"	location="file:///home/unigis-integrator/config/application.properties" /-->
+
+	<bean id="skyguardianHTTPClient"
+		class="mx.skyguardian.unigis.integration.http.SkyguardianHTTPClient">
+		<property name="appProperties" ref="appProperties"></property>
+	</bean>
+
+	<bean id="simpleJSONDeserializer"
+		class="mx.skyguardian.unigis.integration.json.SimpleJSONDeserializer">
+	</bean>
+	
+	<bean id="unigisSoapClient" class="mx.skyguardian.unigis.integration.soap.UNIGISSoapClient">
+		<property name="appProperties" ref="appProperties"></property>
+	</bean>
+
+	<bean id="unigisIntegrator"
+		class="mx.skyguardian.unigis.integration.business.GurtamUNIGISIntegrator">
+		<property name="appProperties" ref="appProperties"></property>
+		<property name="skyguardianHttpClient" ref="skyguardianHTTPClient"></property>
+		<property name="jsonDeserializer" ref="simpleJSONDeserializer"></property>
+		<property name="unigisSoapClient" ref="unigisSoapClient"></property>
+	</bean>
+
+	<!-- specifing class and method that is going to be called on a specified time basis -->
+	<bean id="gurtamUnigisQuartzJob"
+		class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+		<property name="targetObject" ref="unigisIntegrator" />
+		<property name="targetMethod" value="sendEvent2UNIGIS" />
+	</bean>
+
+	<!-- simple trigger specify repeat interval and delay time -->
+	<bean id="simpleTrigger"
+		class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+		<property name="jobDetail" ref="gurtamUnigisQuartzJob" />
+		<!-- Interval 15 minutes -->
+		<property name="repeatInterval" value="900000" /><!-- 1000 = 1 sec -->
+	</bean>
+
+	<!-- scheduler factory bean to bind,the executing code and time intervals together -->
+	<bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+		<property name="jobDetails">
+			<list>
+				<ref bean="gurtamUnigisQuartzJob" />
+			</list>
+		</property>
+		<property name="triggers">
+			<list>
+				<ref bean="simpleTrigger" />
+			</list>
+		</property>
+	</bean>
+</beans>
